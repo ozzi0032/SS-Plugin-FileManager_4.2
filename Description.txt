@@ -1,0 +1,9 @@
+﻿FriendlyName: BizSol File Manager
+Description: BizSol File Manager Plugin
+Group: Tools
+SystemName: BizSol.FileManager
+Version: 4.2.0
+MinAppVersion: 4.2.0
+DisplayOrder: 0
+FileName: BizSol.FileManager.dll
+ResourceRootKey: BizSol.FileManager

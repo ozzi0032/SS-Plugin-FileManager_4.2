@@ -1,0 +1,155 @@
+﻿@{
+    Html.AddCssFileParts(
+       "~/Plugins/BizSol.FileManager/Content/css/kendo.common.min.css",
+       "~/Plugins/BizSol.FileManager/Content/css/kendo.default.min.css");
+
+    Html.AddScriptParts("~/Plugins/BizSol.FileManager/Content/js/jquery-migrate-3.0.0.min.js",
+        "~/Plugins/BizSol.FileManager/Content/js/kendo.all.min.js");
+}
+
+@{
+    Layout = "_Layout";
+    ViewBag.Title = "Files List";
+}
+
+<div class="row">
+    <div class="col-md-3">
+        <h4>My Coding Dictionary</h4>
+    </div>
+    <div class="col-md-9 text-right">
+        <a class="btn btn-primary btn-sm" href="@Url.Action("MediaTag")">Create New</a>
+    </div>
+</div>
+<div class="card">
+    <div style="margin-bottom:5px;">
+        <input style="width: 100%" type="text" id="search-box" class="form-control" placeholder="Search...">
+    </div>
+    <div id="filesGrid">
+    </div>
+</div>
+
+<script>
+    var searchTermVar = "";
+    $(document).ready(function () {
+        $("#search-box").unbind('keydown');
+        var gridDataSource = new kendo.data.DataSource({
+            transport: {
+                read: {
+                    url: function () {
+                        return "/Plugins/BSFileManager/GetFileList?searchTerm=" + searchTermVar;
+                    },
+                    dataType: "json"
+                },
+                parameterMap: function (options) {
+                    options.sort = JSON.stringify(options.sort);
+                    options.filter = JSON.stringify(options.filter);
+                    return options;
+                }
+            },
+            pageSize: 10,
+            serverPaging: true,
+            serverFiltering: true,
+            serverSorting: true,
+            schema: {
+                total: "Count",
+                data: "KendoGridViewModel",
+                model: {
+                    id: "HeaderId",
+                    fields: {
+                        HeaderId: { type: "number" },
+                        Title: { type: "string" },
+                        Description: { type: "string" },
+                        TagString: { type: "string" },
+                        CreatedOnUtc: { type: "date" },
+                        UpdatedOnUtc: { type: "date" }
+                    }
+                }
+            },
+            //sort: {
+            //    field: "CreatedOnUtc",
+            //    dir: "asc"
+            //}
+        });
+
+        $("#filesGrid").kendoGrid({
+            dataSource: gridDataSource,
+            pageable: true,
+            sortable: true,
+            sort: onSorting,
+            scrollable: true,
+            filterable: true,
+            height: 500,
+            columns: [{
+                template: function (data) {
+                    var elem = "<a href=\"FileDetail?id=" + data.HeaderId + "\" style=\"color: black\" >" + data.Title + "</a>";
+                    return elem;
+                },
+                field: "Title",
+                title: "Title",
+                width: 160,
+                filterable: false
+            }, {
+                field: "Description",
+                title: "Description",
+                width: 300,
+                filterable: false
+            },
+            {
+                field: "TagString",
+                title: "Tags",
+                width: 200,
+                filterable: false
+            },
+            {
+                field: "CreatedOnUtc",
+                title: "Created On",
+                format: "{0:yyyy-MM-dd}",
+                width: 120,
+                filterable: false
+            }, {
+                field: "UpdatedOnUtc",
+                title: "Updated On",
+                format: "{0:yyyy-MM-dd}",
+                width: 120,
+                filterable: false
+            },],
+        });
+
+        function onSorting(arg) {
+            var sortColList = [];
+            sortColList.push({
+                Column: arg.sort.field,
+                Dir: arg.sort.dir
+            });
+        }
+
+        $("#search-box").keypress(function (event) {
+            var keycode = (event.keyCode ? event.keyCode : event.which);
+            if (keycode == '13') {
+                searchTermVar = $("#search-box").val();
+                gridDataSource.read();
+            }
+            event.stopPropagation();
+
+        });
+    });
+</script>
+<style>
+    .row {
+        margin-top: 5px;
+        margin-bottom: 5px;
+    }
+
+    .text-right {
+        margin-top: 5px;
+        margin-bottom: 5px;
+        position: relative;
+        right: 0px;
+    }
+
+    .card {
+        margin-top: 5px;
+        border: 1px solid #eee;
+    }
+</style>
+

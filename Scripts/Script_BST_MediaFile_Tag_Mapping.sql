@@ -1,0 +1,21 @@
+USE [SmartStoreDB]
+GO
+
+/****** Object:  Table [dbo].[BST_MediaFile_Tag_Mapping]    Script Date: 23/05/2022 11:19:16 AM ******/
+SET ANSI_NULLS ON
+GO
+
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE TABLE [dbo].[BST_MediaFile_Tag_Mapping](
+	[Id] [int] IDENTITY(1,1) NOT NULL,
+	[BST_MediaFile_Id] [int] NOT NULL,
+	[BST_MediaTag_Id] [int] NOT NULL,
+ CONSTRAINT [PK_BST_MediaFile_Tag_Mapping] PRIMARY KEY CLUSTERED 
+(
+	[Id] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+

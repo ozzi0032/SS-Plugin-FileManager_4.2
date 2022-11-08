@@ -1,0 +1,356 @@
+﻿@model BizSol.FileManager.Models.MediaDicViewModel
+@using BizSol.FileManager.Models;
+@{
+    Html.AddCssFileParts("~/Plugins/BizSol.FileManager/Content/css/kendo.common.min.css",
+       "~/Plugins/BizSol.FileManager/Content/css/kendo.default.min.css",
+       "~/Plugins/BizSol.FileManager/Content/css/selectize.css",
+       "~/Plugins/BizSol.FileManager/Content/CodeMirror/codemirror.min.css",
+       "~/Plugins/BizSol.FileManager/Content/CodeMirror/theme/eclipse.min.css",
+       "~/Plugins/BizSol.FileManager/Content/css/dropzone.min.css");
+
+    Html.AddScriptParts(
+        "~/Plugins/BizSol.FileManager/Content/js/jquery-migrate-3.0.0.min.js",
+        "~/Plugins/BizSol.FileManager/Content/js/kendo.all.min.js",
+        "~/Plugins/BizSol.FileManager/Content/js/fontawesome.min.js",
+        "~/Plugins/BizSol.FileManager/Content/js/selectize.min.js",
+        "~/Plugins/BizSol.FileManager/Content/CodeMirror/codemirror.min.js",
+        "~/Plugins/BizSol.FileManager/Content/CodeMirror/mode/javascript/javascript.min.js",
+        "~/Plugins/BizSol.FileManager/Content/js/dropzone.min.js"
+        );
+}
+
+@{
+    ViewBag.Title = "Media Tag";
+    Layout = "_Layout";
+}
+
+<div>
+    <div class="row">
+        <label class="col-md-3 col-form-label">Tags</label>
+        <div class="col-md-9">
+            <select multiple id="mediaTag" class="noskin"></select>
+            <span id="tagError" class="text-danger"></span>
+        </div>
+    </div>
+    @using (Html.BeginForm("MediaTag", "FileManager", FormMethod.Post, new { @class = "form-horizontal", id = "newFile-form", enctype = "multipart/form-data" }))
+    {
+        <div class="row">
+            @Html.LabelFor(model => model.Title, new { @class = "col-md-3 col-form-label", @for = "Title" })
+            <div class="col-md-9">
+                @Html.TextBoxFor(model => model.Title, new { @class = "form-control" })
+                <span id="titleError" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="row">
+            @Html.LabelFor(model => model.Description, new { @class = "col-md-3 col-form-label", @for = "Description" })
+            <div class="col-md-9">
+                @Html.TextBoxFor(model => model.Description, new { @class = "form-control" })
+                <span id="descError" class="text-danger"></span>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12 dropzone dz-message dz-clickable dropzone-previews" id="previewFiles">
+                <div style="text-align:center">
+                    <i class="far fa-file-code col-sm-2" style="font-size:30px"></i>
+                    <h4>Drop files here or click to upload.</h4>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-md-12" id="textboxContainer">
+                @* Dynamic Edit Boxes will go here*@
+            </div>
+        </div>
+
+        <div id="alert" class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Warning!</strong> You should upload the code files (atleast one).
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                <span aria-hidden="true">&times;</span>
+            </button>
+        </div>
+
+        <div class="row text-right">
+            <div class="col">
+                <button type="button" class="btn btn-primary btn-lg" name="save-button" id="save-button">
+                    Save
+                </button>
+            </div>
+            <div class="col">
+                <button type="button" class="btn btn-primary btn-lg" name="code-button" id="code-button">
+                    Add Code Snippet
+                </button>
+            </div>
+            <script type="text/javascript">
+                let count = 0;
+                let addedFiles = [];
+                let editorsList = [];
+                $(document).ready(function () {
+                    Dropzone.autoDiscover = false;
+                    $("#alert").hide();
+                    // Selectize MultiSelect
+                    var select = $("#mediaTag").selectize({
+                        create: true,
+                        persist: true,
+                        preload: true, // if true, load func will be called upon initialization
+                        loadingClass: 'loading',
+                        valueField: 'Id',
+                        labelField: 'Name',
+                        sortField: 'Name',
+                        searchField: ['Name'],
+                        placeholder: 'Select tags',
+                        plugins: ['remove_button'],
+                        create: function (input) {
+                            var self = this;
+                            $.ajax({
+                                type: "POST",
+                                url: "/Plugins/BSFileManager/CreateTag?name=" + input,
+                                contentType: "application/json; charset=utf-8",
+                                dataType: "json",
+                                success: function (res) {
+                                    var _res = JSON.parse(res);
+                                    return {
+                                        Id: _res.Id,
+                                        CustomerId: _res.CustomerId,
+                                        Name: _res.Name,
+                                    };
+                                    //location.reload(false);
+                                }
+                            });
+                        }
+                    });
+                    var selectize = select[0].selectize;
+                    selectize.load(function (callback) {
+                        $.ajax({
+                            url: '/Plugins/BSFileManager/TagList',
+                            type: 'GET',
+                            dataType: 'json',
+                            error: function () {
+                                callback();
+                            },
+                            success: function (res) {
+                                callback(res);
+                            }
+                        });
+                    });
+
+                    $("#newFile-form").dropzone({
+                        url: "/Plugins/BSFileManager/UploadFile",
+                        paramName: "files",
+                        maxFilesize: 20, // MB,
+                        parallelUploads: 4,
+                        uploadMultiple: true,
+                        autoQueue: true,
+                        dictResponseError: 'Server not Configured',
+                        previewsContainer: "#previewFiles",
+                        init: function () {
+                            var self = this;
+                            // config
+                            self.options.addRemoveLinks = true;
+                            self.options.dictRemoveFile = "Delete File";
+
+                            self.on("successmultiple", function (fileList, response) {
+                                var result = JSON.parse(response);
+                                result.forEach(function (value, index, _) {
+                                    //addedFiles[index] = value;
+                                    addedFiles.push(value);
+                                });
+                            });
+
+                            self.on("removedfile", function (file) {
+                                var _file = addedFiles.find(item => item.FileName == file.name);
+                                var index = addedFiles.indexOf(_file);
+                                var path = _file.FilePath;
+                                $.ajax({
+                                    url: '/Plugins/BSFileManager/RemoveUploadedFile?path=' + path,
+                                    type: 'GET',
+                                    dataType: 'json',
+                                    error: function () {
+                                    },
+                                    success: function (res) {
+                                        addedFiles.splice(index, 1); // Remove the file from list of files also *Second Parameter means remove one item only
+                                        alert(res);
+                                    }
+                                });
+                            });
+                        }
+                    });
+
+                    $(document).on("click", "#code-button", function () {
+                        // Create dynamic CodeMirror Editors
+                        count++;
+                        var div = $("<div class = 'row'><div />");
+                        var label = $('<label class = "col-md-3 col-form-label">Code Snippet:' + count + '<label />');
+                        div.append(label);
+                        div.append(GetDynamicTextBox());
+                        //div.html(GetDynamicTextBox());
+                        $("#textboxContainer").append(div);
+
+                        var editor = CodeMirror.fromTextArea(document.getElementsByName("DynamicTextBox")[count - 1], {
+                            mode: "javascript",
+                            lineNumbers: true,
+                            lineWrap: false,
+                            viewportMargin: Infinity
+                        });
+                        editor.setSize("100%", null); // Re-size the CodeMirror
+                        editorsList.push(editor);
+
+                    });
+
+                    function GetDynamicTextBox() {
+                        return '<textarea name = "DynamicTextBox" />';
+                    }
+
+                    // POSTING Media File Along with Selected Tags
+                    $(document).on("click", "#save-button", function (event) {
+                        event.preventDefault();
+                        var mediaTags = [];
+
+                        // Get tags
+                        var selectedTags = selectize.getValue();
+                        selectedTags.forEach(function (value,_,__) {
+                            var mediaTagObj = {
+                                Id: value,
+                                Name: 'Tag Name',
+                                CustomerId:'Customer Id',
+                            };
+                            mediaTags.push(mediaTagObj);
+                        });
+
+                        // Get Values of CodeMirrors created
+                        var codeSnippets = [];
+                        $(".CodeMirror").each(function (i, obj) {
+                            codeSnippets.push(editorsList[i].getValue());
+                        });
+
+
+                        var mediaDicVMObj = {
+                            HeaderId: '@Model.HeaderId',
+                            CustomerId: '@Model.CustomerId',
+                            Title: $("#Title").val(),
+                            Description: $("#Description").val(),
+                            CRC: "CRC",
+                            CodeSnippet: JSON.stringify(codeSnippets),
+                            TagString: '@Model.TagString',
+                            CreatedOnUtc:'@Model.CreatedOnUtc',
+                            UpdatedOnUtc: '@Model.UpdatedOnUtc',
+                            MediaTags: mediaTags,
+                            MediaFiles: addedFiles, //Uploaded files
+                        };
+                        var mediaDicVMMain = {
+                            mediaDicVM: mediaDicVMObj,
+                        };
+
+                        if (Validate()) {
+                            $.ajax({
+                                type: "POST",
+                                url: "/Plugins/BSFileManager/MediaTag",
+                                contentType: "application/json; charset=utf-8",
+                                dataType: "json",
+                                data: JSON.stringify(mediaDicVMMain),
+                                success: function (response) {
+                                    window.location.replace("/Plugins/BSFilemanager/FileList");
+                                }
+                            });
+                        }
+                    });
+
+                    function Validate() {
+                        $("#titleError").text("");
+                        $("#descError").text("");
+                        $("#tagError").text("");
+                        var validationMessage = "Field is required!";
+                        if ($("#Title").val() == "" || $("#Title").val().length < 1) {
+                            $("#titleError").text(validationMessage);
+                        }
+
+                        if ($("#Description").val() == "" || $("#Description").val().length < 1) {
+                            $("#descError").text(validationMessage);
+                        }
+
+                        if (selectize.getValue().length < 1) {
+                            $("#tagError").text("Please select atleast one tag");
+                        }
+
+                        if (addedFiles.length < 1) {
+                            $("#alert").show();
+                        }
+
+                        else {
+
+                            if ($("#Title").val().length != 0 &&
+                                $("#Description").val().length != 0 &&
+                                selectize.getValue().length != 0 &&
+                                addedFiles.length != 0) {
+                                $("#alert").hide();
+                                return true;
+                            }
+
+                        }
+
+                        return false;
+                    }
+                });
+            </script>
+        </div>
+    }
+
+</div>
+
+<style>
+    .row {
+        margin-top: 8px;
+    }
+
+        .row.text-right {
+            margin-top: 8px;
+        }
+
+    .CodeMirror {
+        height: auto;
+        min-height: 200px;
+        border: 1px solid #eee;
+    }
+
+    .dropzone {
+        background: white;
+        border-radius: 5px;
+        border: 2px dashed #eee;
+        border-image: none;
+        max-width: auto;
+        max-height: auto;
+        margin-left: auto;
+        margin-right: auto;
+        margin-top: inherit;
+    }
+
+    .dropZoneElement {
+        position: relative;
+        display: inline-block;
+        background-color: #f8f8f8;
+        border: 1px solid #c7c7c7;
+        border-radius: 5px;
+        width: 100%;
+        height: 80px;
+        text-align: center;
+    }
+
+    .textWrapper {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 100%;
+        font-size: 18px;
+        line-height: 1.2em;
+        font-family: Arial,Helvetica,sans-serif;
+        color: #000;
+    }
+
+    .dropFileHereText {
+        color: #c7c7c7;
+        text-transform: uppercase;
+        font-size: 12px;
+    }
+</style>
+
+
+
